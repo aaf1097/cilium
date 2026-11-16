@@ -454,11 +454,17 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 
 		ips := make([]net.IP, 0)
 		for _, node := range nodes.Items {
-			if len(node.Status.Addresses) == 0 {
-				continue
+			// take the first InternalIP/ExternalIP; some cloud providers
+			// (e.g. vSphere) list the Hostname first.
+			for _, a := range node.Status.Addresses {
+				if a.Type != corev1.NodeInternalIP && a.Type != corev1.NodeExternalIP {
+					continue
+				}
+				if ip := net.ParseIP(a.Address); ip != nil {
+					ips = append(ips, ip)
+					break
+				}
 			}
-			nodeAddress := node.Status.Addresses[0]
-			ips = append(ips, net.ParseIP(nodeAddress.Address))
 		}
 
 		// sort the addresses for consistent ip addresses assigned
